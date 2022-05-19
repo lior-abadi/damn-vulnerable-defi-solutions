@@ -18,3 +18,6 @@ By implementing this code on the ```Exploit``` part of the test, this level will
 ### Learnings
 - If we are checking a strict equality or inequality, analyze from where, who and when can manipulate each parts of the equation and evaluate if the malicious outcomes can be triggered. 
 - This also is very common with ```require``` statements that are bypassed by tricking using a little bit of math and blockchain knowledge and also to unexpectedly enter ```if``` statements executions. 
+- For equalities and inequalities, it is also advisable to think about feasible cases. For example, is it possible for a user to send a transaction with an amount greater than the current supply of Ether? But... is that possible for a 50% of supply? And 10%? What if the token in question is not Ether? All this border scenarios help undestanding feasible cases! 
+
+**Think outside the box before exploiters do!**
