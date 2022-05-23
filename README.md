@@ -80,7 +80,8 @@ The vulnerability in here is on the ```line 36``` of the contract. The pool is g
 
 Using the *blank check* that this contract gives us it is quite simple. We need to trigger the ```flashLoan``` function and pass it as ```calldata``` an instruction that let us transfer the tokens held on the ```TrusterLenderPool```. There is one function that let us do this only when a crucial requirement is fulfilled: the ```approval```. We will encode the ```approval``` call into the ```calldata```. The key in here is that this call is coming from the pool contract and thus will be valid (because technically, you can only approve the tokens held by you, otherwise this will be a mess...), in other words the call will be done by the ```msg.sender == address(pool)```. This will let either the ```attacker``` or the ```TrustCracker.sol``` contract to execute afterwards the ERC20 ```transferFrom``` function and drain the pool.
 
-The basic structure to do so will be a function like this one (for interfaces initialization and how the contract should be deployed, you can check it under the ```contracts``` folder):
+The basic structure to do so will be a function like this one (for interfaces initialization and how the contract should be deployed, you can check the ```TrustCracker.sol``` 
+contract under the ```contracts``` folder):
 
     function drainPool() public {
         uint256 poolBalance = token.balanceOf(address(pool));
