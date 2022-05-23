@@ -144,7 +144,7 @@ The contract that exploits this pool is within the same folder as the contract o
         pool.deposit{value: msg.value}();
     }
 
-Call ```drainPool`` and **kboom**!
+Call ```drainPool``` and **kboom**!
 
 ### Learnings - Mitigations
 - Be always wary about side entrance functions that may change the checked condition making a kind of illusionism show. 
