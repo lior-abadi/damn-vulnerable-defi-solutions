@@ -191,7 +191,7 @@ This is a border case. That 0.001% makes no difference but you won't receive all
 
 ### Solution
 
-The same physics logic can be applied in here. The state of the rewards is refreshed at a fixed timespan. It is analogue to say that we are deducting a flow property status just by measuring it on two different times. A flowrate for example, may change and saying that it remained constant every time only by measuring the flowrate once per year is a faulty assertion!
+The same physics logic can be applied in here. The state of the rewards is refreshed at a fixed timespan. It is analogue to say that we are deducting a physic property is constant just by measuring it on two different times. A flowrate, for example, may change and saying that it remained constant every time only by measuring the flowrate once per year is a faulty assertion!
 
 The weakness of this contract relies on having fixed times to update the reward amounts. We can exploit it with this logic.
 
