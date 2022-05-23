@@ -179,7 +179,9 @@ Call `drainPool` and **kboom**!
 
 ### Catch - Hints
 
-Think about how does a boundary case affects a value. On math, this is a border case that can be analyzed with tendency and limit algebra. To be more clear, what happens if there is a company that has 10,000 shares on the market and it gives dividends according the % owned of the company. You own 5,000 shares. So, you will be receiving a 50% of the dividends. Somehow, you manage to buy more and now you have 9,000. This means that you will be owner of the 90% of the dividends. You keep buying more and more and you finish with 9,999 shares and the founder of the company is very reluctant to sell that remaining share. You now are the owner of the 99.99% of the dividends but because of the founder, you will **never** be the owner of the 100%.
+Think about how does a boundary case affects a value. On math, this is a border case that can be analyzed with tendency and limit algebra. 
+
+To be more clear, what happens if there is a company that has 10,000 shares on the market and it gives dividends according the % owned of the company. You own 5,000 shares. So, you will be receiving a 50% of the dividends. Somehow, you manage to buy more and now you have 9,000. This means that you will be owner of the 90% of the dividends. You keep buying more and more and you finish with 9,999 shares and the founder of the company is very reluctant to sell that remaining share. You now are the owner of the 99.99% of the dividends but because of the founder, you will **never** be the owner of the 100%.
 
 This is a border case. That 0.001% makes no difference but you won't receive all the dividends. If you can apply this logic somehow with this scenario with the given tools, you will pass this level.
 
