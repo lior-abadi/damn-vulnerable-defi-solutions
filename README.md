@@ -128,7 +128,7 @@ The contract that exploits this pool is within the same folder as the contract o
 
     receive() external payable {}
 
-    function drainPool() public payable {
+    function drainPool() public {
         callFlashLoan();
 
         pool.withdraw();
