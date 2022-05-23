@@ -110,3 +110,42 @@ The same exploit can be done while requesting tokens (more than zero), executing
 - To rely on logic, tokens can only be borrowed by contracts. Individual wallets cannot perform further logic such as contracts do.
 
 **And remember, if a suited guy flexing cars and watches comes by offering huge APY's, run away. It is a scheme.**
+⠀
+⠀
+⠀
+## 4) Side Entrance Lender
+### Catch - Hints
+We need to look closely how does the balance of this contract is modified. Think this contract as a big water tank with two inlets of water and oil and two outlets that checks its level. It is basically saying... "if my level is constant, the mixture inside is constant". What if we decide to turn of the water inlet and fill it back with oil (keeping the outlets open). The level will remain constant but... there will no more water inside the tank! This level can be cracked by thinking how things remain constant and how they may change...
+
+### Solution
+We may trick the contract with the ```deposit``` and ```withdraw```logic combined with the request for a ```flashLoan```. If we follow this path we will be able to empty the contract:
+
+1) Ask for a loan for its whole balance.
+2) When the ```execute``` function is triggered, we can give the ethers back by calling ```deposit```. This will make the pool balance to match the ```require``` condition and the ```flashLoan``` function will be mined completely. Also, this assigns the ```SideCracker``` contract a balance inside the ```balances```mapping stored on the pool contract. In other words, we returned back the tokens but we assigned them as our property as for the pool logic.
+3) Because we now hold a balance as our property, we can simply call the ```withdraw``` function and draining the pool!
+
+The contract that exploits this pool is within the same folder as the contract of this level but the logic will be something like this:
+
+    receive() external payable {}
+
+    function drainPool() public payable {
+        callFlashLoan();
+
+        pool.withdraw();
+        payable(attacker).transfer(address(this).balance);
+    }
+
+    function callFlashLoan() public {
+        uint256 poolBalance = address(pool).balance;
+        pool.flashLoan(poolBalance);
+    }
+
+    function execute() external payable { 
+        pool.deposit{value: msg.value}();
+    }
+
+Call ```drainPool`` and **kboom**!
+
+### Learnings - Mitigations
+- Be always wary about side entrance functions that may change the checked condition making a kind of illusionism show. 
+- The fact that some variables remain the same after a call it is not a sign that the new state is exactly the same.
