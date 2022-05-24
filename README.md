@@ -4,7 +4,7 @@ Visit [damnvulnerabledefi.xyz](https://damnvulnerabledefi.xyz)
 
 # Solutions
 
-When contracts are used to solve challenges, they can be found under each `contracts` folder.
+When contracts are used to solve challenges, they can be found under each `contracts` folder named with the word **Cracker** (e.g. *"SelfieCracker"*).
 ⠀
 ⠀
 
@@ -171,7 +171,8 @@ Call `drainPool` and **kboom**!
 
 - Be always wary about side entrance functions that may change the checked condition making a kind of illusionism show.
 - The fact that some variables remain the same after a call it is not a sign that the new state is exactly the same.
-  ⠀
+
+**Always look after your drink while at a bar!**
   ⠀
   ⠀
 
@@ -223,3 +224,28 @@ The functions behind this logic:
 ### Learnings - Mitigations
 - Prevent depending on fixed timeframes where the rewards are updated. In other words, having a logic that relies on a single point of time instead of having a continuous updates of the data the rewards allocation can be manipulated by a flash loans.
 - Thinking about border scenarios regarding fractions is useful to come up with border situations that may break that math and other logic dependant steps.
+
+**Pizza is knowledge! Never leave the crust (borders) unattended!**  ⠀
+  ⠀
+  ⠀
+
+## 6) Selfie
+
+### Catch - Hints
+The title of this challenge is a huge hint on what we need to do to solve it! Somehow, we need to conduct a totalitarian decision within the governance... the message in here is clear. Totalitarian governments are vulnerable.
+
+### Solution
+If you look closer on how the level contracts are deployed, you will see that both the ```flashLoan``` tokens and the ```governance``` tokens are technically driven by the same ERC20 address. So... we can simply take a flashloan, push any action we want and then return those tokens back to the lending pool. The solution is a contract under the level ```contracts``` folder. The idea behind the solution is the following:
+
+1) Ask for a huge loan composed by the ```tokens == governanceTokens```.
+2) Snapshot that amount held in order to pass the snapshot check.
+3) Queue any action we want to the Governance. On this case, it will be targeting the ```drainAllFunds``` from the pool.
+4) Return the loan.
+5) Wait until the cooldown time passes.
+6) Execute the function within the execution queue of the Governance.
+
+### Learnings - Mitigations
+- Avoid having a flashLoanable governance token...
+
+**Once you upload a photo, it will be always on the internet!**
+
