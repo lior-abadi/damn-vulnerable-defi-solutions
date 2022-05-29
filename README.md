@@ -5,6 +5,16 @@ Visit [damnvulnerabledefi.xyz](https://damnvulnerabledefi.xyz)
 # Solutions
 
 When contracts are used to solve challenges, they can be found under each `contracts` folder named with the word **Cracker** (e.g. *"SelfieCracker"*).
+
+# Index
+- [1) Unstoppable](https://github.com/lior-abadi/damn-vulnerable-defi-solutions#1-unstoppable)
+- [2) Naive Receiver](https://github.com/lior-abadi/damn-vulnerable-defi-solutions#2-naive-receiver)
+- [3) Truster Lender Pool](https://github.com/lior-abadi/damn-vulnerable-defi-solutions#3-truster-lender-pool)
+- [4) Side Entrance](https://github.com/lior-abadi/damn-vulnerable-defi-solutions#4-side-entrance-lender)
+- [5) The Rewarder](https://github.com/lior-abadi/damn-vulnerable-defi-solutions#5-the-rewarder)
+- [6) Selfie](https://github.com/lior-abadi/damn-vulnerable-defi-solutions#6-selfie)
+- [7) Compromised](https://github.com/lior-abadi/damn-vulnerable-defi-solutions#7-compromised)
+- [8) Puppet](https://github.com/lior-abadi/damn-vulnerable-defi-solutions#8-puppet)
 ⠀
 ⠀
 
