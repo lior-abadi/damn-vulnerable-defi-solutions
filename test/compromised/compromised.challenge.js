@@ -134,6 +134,10 @@ describe('Compromised challenge', function () {
         await manipulatePrice("999");
 
 
+
+
+
+
     });
 
     after(async function () {

