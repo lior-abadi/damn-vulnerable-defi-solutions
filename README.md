@@ -16,6 +16,7 @@ When contracts are used to solve challenges, they can be found under each `contr
 - [7) Compromised](https://github.com/lior-abadi/damn-vulnerable-defi-solutions#7-compromised)
 - [8) Puppet](https://github.com/lior-abadi/damn-vulnerable-defi-solutions#8-puppet)
 - [9) Puppet V2](https://github.com/lior-abadi/damn-vulnerable-defi-solutions#9-puppet-v2)
+- [10) Free Rider](https://github.com/lior-abadi/damn-vulnerable-defi-solutions#10-free-rider)
 ⠀
 ⠀
 
