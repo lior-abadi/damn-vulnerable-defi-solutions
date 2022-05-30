@@ -573,5 +573,41 @@ And that's it! Another pool drained!
 - Same as before, prevent relying on a single oracle unless there is no other way! 
 
 **Why are we draining everything? Is there a flood?**
+⠀
+⠀
+⠀
+
+## 10) Free Rider
+
+### Catch - Hints
+The order, matters. That's all we are going to say.
+
+
+### Solution
+This level has two main teachings. The first one is learning how to perform flashloans from the Uniswap pool and the second one is understanding that the order really matters.
+The main vulnerability on this level resides on the set of lines ```77``` and ```80``` of the ```FreeRiderNFTMarketplace``` contract. This marketplace first performs the NFT transfer and then sends the payment to the owner. The problem in here is that they transfer the NFT before making the payment. It's a matter of ownership, that changes like so:
+
+*The Poor Alice has an NFT listed on the FreeRiderNFTMarketplace. John decides to gather 15 ETH and purchase the NFT. The contract will do the following process. First, transfer the NFT to John, so now the owner of the NFT is indeed John. Then, it will assign the NFT to the new owner and then will pay to that owner. The problem is that the owner is now... John! The contract is damn vulnerable!*
+
+The other challenge of this contract is understanding how flashloans work. But, why do we need a flashloan anyways? Well, lets take a look to the solution approach (remember that the attacker starts with 0.5 ETH).
+
+1) The attacker requests a flashloan by flashwapping ```15 WETH``` from Uniswap.
+2) Unwraps the ```WETH``` into ```ETH```.
+3) Buys all the NFTs with only ```15 ETH```(instead of the ```90 ETH``` meant).
+4) Transfers all the NFTs to the buyer and claims the ```45 ETH``` reward.
+5) Pays back the loan.
+
+If there was an ```ETH``` flashloan available the process will be the same by starting from step 2) with the asked ETH.
+
+Uniswap has the chance to request flashswaps. They are like flashloans to a certain pair of tokens. So, you will only have available the balance of tokens of a certain pair (on this level ```DVT/WETH```). The idea is that every swap will work as spot swap if no ```data``` is passed (requiring the swapper to give the counterpart of requested tokens). If we pass some ```data```, the DEX will interpret that we are willing to perform a flashswap and will trigger the callback ```uniswapV2Call``` within the requester contract. It is extremely important to check not only that the pair exists (flashloaner) but also that the requester was indeed the desired contract to prevent malicious external calls. 
+
+Inside the callback function we can retrieve the passed ```data``` from before and also do whatever we want with the flashloaned amount. After we finished performing the desired transactions we must pay the loan back plus a fee. 
+
+The solution is a contract and it can be found within the level folder.
+
+### Learnings - Mitigations
+- Being extremely careful with the order of the transfers and payments is a must. We have to ensure that the transfer of ownership and tokens will be in the desired order and that they won't overlap between each other.
+
+**Both for Smart Contracts and Food Delivery... the order really matters!**
 
 

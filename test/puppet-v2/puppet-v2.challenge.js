@@ -91,7 +91,7 @@ describe('[Challenge] Puppet v2', function () {
 
         // We need to drain the WETH or increase the DVT on the UniswapV2 pool in order to get DVT >>>> WETH.
         let amountToLiquidate = ethers.utils.parseEther("10000");
-        let askedAmountOfETH = ethers.utils.parseEther("8");
+        let askedAmountOfETH = ethers.utils.parseEther("0");
         let txPath = [this.token.address, this.weth.address];
 
         await this.token.connect(attacker).approve(this.uniswapRouter.address, amountToLiquidate);
