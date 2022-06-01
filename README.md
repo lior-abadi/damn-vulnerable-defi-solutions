@@ -151,7 +151,7 @@ We need to look closely how does the balance of this contract is modified. Think
 
 ### Solution
 
-We may trick the contract with the `deposit` and `withdraw`logic combined with the request for a `flashLoan`. If we follow this path we will be able to empty the contract:
+We may trick the contract with the `deposit` and `withdraw` logic combined with the request for a `flashLoan`. If we follow this path we will be able to empty the contract:
 
 1. Ask for a loan for its whole balance.
 2. When the `execute` function is triggered, we can give the ethers back by calling `deposit`. This will make the pool balance to match the `require` condition and the `flashLoan` function will be mined completely. Also, this assigns the `SideCracker` contract a balance inside the `balances`mapping stored on the pool contract. In other words, we returned back the tokens but we assigned them as our property as for the pool logic.
