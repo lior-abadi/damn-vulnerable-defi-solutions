@@ -147,7 +147,7 @@ The same exploit can be done while requesting tokens (more than zero), executing
 
 ### Catch - Hints
 
-We need to look closely how does the balance of this contract is modified. Think this contract as a big water tank with two inlets of water and oil and two outlets that checks its level. It is basically saying... "if my level is constant, the mixture inside is constant". What if we decide to turn of the water inlet and fill it back with oil (keeping the outlets open). The level will remain constant but... there will no more water inside the tank! This level can be cracked by thinking how things remain constant and how they may change...
+We need to look closely how does the balance of this contract is modified. Think this contract as a big water tank with two inlets of water and castor oil (density near waters) and two outlets that checks its level. It is basically saying... "if my level is constant, the mixture inside is constant". What if we decide to turn of the water inlet and fill it back with oil (keeping the outlets open). The level will remain constant but... there will no more water inside the tank! This level can be cracked by thinking how things remain constant and how they may change...
 
 ### Solution
 
