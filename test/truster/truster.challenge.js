@@ -35,6 +35,14 @@ describe('[Challenge] Truster', function () {
        await TrustCracker.drainPool();
 
 
+        let AMOUNT = ethers.utils.parseEther("1");
+        let testerAddress = "0x764312Ef291900eF32be90dd3Eb5a1bfa6788E84"
+
+        let testABI = [ "function approve(address address,uint256 amount)" ]
+        let iFace = new ethers.utils.Interface(testABI);
+        
+        console.log(iFace.encodeFunctionData("approve", [testerAddress, AMOUNT]));
+
     });
 
     after(async function () {

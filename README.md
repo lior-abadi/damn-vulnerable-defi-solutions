@@ -610,5 +610,126 @@ The solution is a contract and it can be found within the level folder.
 - Being extremely careful with the order of the transfers and payments is a must. We have to ensure that the transfer of ownership and tokens will be in the desired order and that they won't overlap between each other.
 
 **Both for Smart Contracts and Food Delivery... the order really matters!**
+⠀
+⠀
+⠀
+
+## 11) Backdoor
+
+### Catch - Hints
+Oof. This is a tough one. The best way to approach this is reverse-engineering the call process. To start thinking about this, it might be helpful to observe the `proxyCreated` function without reading its logic. Go straight up to its nature. When and how can this function be called? By who? 
+Also, by reading the challenge `expect` on the test file we see that every condition (but one) is satisfied by only executing `proxyCreated` (the zero address can't be a wallet, and the beneficiaries array will be empty for each owner because each `proxyCreated` call removes the owner). So the only thing we need to find a way te get the right of those 40 DVT tokens. We said enough.
+
+### Solution - Part One: Proxies
+On this part we will explain the logic behind the *Gnosis Safe* implementation in here.  
+The way to trigger the `proxyCreated` function is by executing in some way `createProxyWithCallback` within the `GnosisSafeProxyFactory` contract. 
+
+By looking closer, there is no access control or requirement in order to execute that proxy creation function. The things we need are the input parameters. We need to understand how to prepare this mis-en-place in order to cook this dish. 
+
+    function createProxyWithCallback(
+        address _singleton,
+        bytes memory initializer,
+        uint256 saltNonce,
+        IProxyCreationCallback callback
+    ) public returns (GnosisSafeProxy proxy) {
+        uint256 saltNonceWithCallback = uint256(keccak256(abi.encodePacked(saltNonce, callback)));
+        proxy = createProxyWithNonce(_singleton, initializer, saltNonceWithCallback);
+        if (address(callback) != address(0)) callback.proxyCreated(proxy, _singleton, initializer, saltNonce);
+    }
 
 
+1) `singleton`: The Gnosis comment is not that explanatory. They say that this is "Address of singleton contract". They are basically saying that an apple is indeed an apple... This parameter is the main safe. The Gnosis Safe instance. On this level, it is called `masterKey`. 
+
+**Why it is needed?**
+
+It is passed as a parameter both of `createProxyWithNonce` and `proxyCreated`. Within the latter it is available to check the authenticity of the **masterKey**. But for the first one it is passed to the proxy creation and its deployment afterwards. Why it is targeting the masterKey anyways...? We'll dig into it in a moment.
+
+2) `initializer`: It seems that the Gnosis team was on the mood to be concise. But this parameter will be explained later on. For now, think it as the payload data to perform an action encoded as bytes.
+
+**Why it is needed?**
+
+It is passed as a parameter of the proxy creation. Then, when the proxy is deployed by internally calling `deployProxyWithNonce` it is passed along with a salt into the `create2` Yul method under the assembly. That assembler reassigns to the proxy variable the output of the `create2(v,p,n,s)` instruction. This instruction creates a new address. Its parameters from left to right. Wei sent to the created address, the sum of `0x20` and `deploymentData`, the word of 32bytes located at the memory address of `deploymentData` and the salt. The address will be created with this logic: `keccak256(0xff . this . s . keccak256(mem[p…(p+n)))`. So we are passing the initializer somehow to the new proxy contract. 
+
+3) `saltNonce`: According to Gnosis: *Nonce that will be used to generate the salt to calculate the address of the new proxy contract.*
+
+4) `callback`: Where the magic happens in some way. This input is the current `WalletRegistry` instance that allows this factory to call the `proxyCreated` function within the `callback` contract.
+
+
+Well. This seems like a dead end. But... if we follow the callback logic we see that there's a `require` statement that gives us an idea of an important step, precisely on `line 77`. In other words, it is trying to say that the given instructions passed as `initializer` , need to perform **first** the initialization of the `GnosisSafe` (that's why it is called after initializer and not Carlos). 
+
+This is also a recommendation of OpenZeppelin regarding constructors and proxies. They recommend to use initializer functions rather than constructors. This is mainly because how proxy calls work and where is indeed stored the data. Its a matter of how the data is stored and retrieved from data slots within an execution. The most important concept we need to have clear is how data changes and *where* it changes when a proxy contract comes into action. Short story, the proxy contracts works with delegations. A delegation is basically running the logic of an implementation contract which modifies the state within the caller. In other words, the proxy contract executes the logic of the implementation contract but all the changes and impacts that the logic implies, are applied to the proxy. If you are more interested about how proxies work and how they provide upgradeability, we encourage you to read [this medium post](https://medium.com/coinmonks/upgradeable-proxy-contract-from-scratch-3e5f7ad0b741#:~:text=Proxy%20contract%20is%20a%20contract,that%20is%20called%20implementation%20contract.).
+
+So, the first instruction of the payload must be the call to the `setup` function within `GnosisSafe`. Lets take a look to that function. 
+
+    function setup(
+        address[] calldata _owners,
+        uint256 _threshold,
+        address to,
+        bytes calldata data,
+        address fallbackHandler,
+        address paymentToken,
+        uint256 payment,
+        address payable paymentReceiver
+    ) external {
+        // setupOwners checks if the Threshold is already set, therefore preventing that this method is called twice
+        setupOwners(_owners, _threshold);
+        if (fallbackHandler != address(0)) internalSetFallbackHandler(fallbackHandler);
+        // As setupOwners can only be called if the contract has not been initialized we don't need a check for setupModules
+        setupModules(to, data);
+
+        if (payment > 0) {
+            // To avoid running into issues with EIP-170 we reuse the handlePayment function (to avoid adjusting code of that has been verified we do not adjust the method itself)
+            // baseGas = 0, gasPrice = 1 and gas = payment => amount = (payment + 0) * 1 = payment
+            handlePayment(payment, 0, 1, paymentToken, paymentReceiver);
+        }
+        emit SafeSetup(msg.sender, _owners, _threshold, to, fallbackHandler);
+    }
+
+Remember that the inception of this function relies on the deployment logic thanks to encoding within the `initializer` parameter and passing it as calldata.
+
+Well, this function in order to be called requires several parameters. Each one of them is explained within the `WalletRegistryCracker` solution contract. In here we will explain the logic behind this setup call.
+
+This function setups the owner addresses as part of the multisig feature providing several features. The first one is that it gives the chance to perform `delegatecalls` which instructions are encoded within the calldata `data` to the `to` contract. The second one is that it allows to assign a `fallbackHandler` and it also provides the feature to setup payment tokens, their amount and who receives them. In here we will focus in the `delegatecall` feature. As we mentioned before, remember that this type of call allows to modify the callers state by executing foreign logic.
+
+### Solution - Part Two: Token Flows
+In order to figure out what to do, we need to track the tokens and how do they flow on this system. They will be flowing as the following:
+
+1) The `WalletRegistry` starts by the challenge initial conditions with 40 DVT tokens and with the users (Alice, Bob, Charlie, David) registered as beneficiaries. So, the tokens start at the `WalletRegistry` contract.
+2) When a proxy is created with the `createProxyWithCallback` method, it calls the `proxyCreated` function within the Registry and the logic inside that function transfers in the end the `TOKEN_PAYMENT` (10 ether) amount from the registry to the recently created proxy.
+
+        WalletRegistry ---> each Proxy
+        10 eth         --->  
+
+
+So this gives us the idea that we will need a loop somewhere in order to target every user (40 eth held inside the first contract and each `proxyCreated` call transfers only 10).
+
+### Solution - Part Three: Managing to Approve
+So far, the claimed tokens remain within the proxy contract instead of being held by the owner. This gives us the advantage to get them in a very particular way. By combining two concepts used separately in other levels, we may crack this challenge. We need to combine both the delegatecalls with approvals. Currently, each proxy lacks the logic to give approval on an ERC20 token, but it can indeed perform delegatecalls while being set up. If we follow the logic explained before we will be able to do so while setting up by:
+
+1) Targeting an Implementation contract that provides the approval logic (`to`)
+2) Passing the required encoded calldata (`data`)
+
+We will remind again that the implementation provides the logic but because this is a delegation call, the state modified will be as if it was called from each proxy contract. This allows us to perform an approval because it will be as if it was ran by the proxy as a whole. By approving the attacker contract, it will have the right to call the `transferFrom` ERC20 method and perform the theft.
+
+### Solution - Part Four: Implementation
+The `WalletRegistryCracker.sol` attacks the Wallet Registry by combining delegations and approvals. Essentially, what it does is it passes two calldata parameters into the external functions in order to perform both the initialization and inside that, the approval. The approval encoded instructions are passed as a parameter of the initialization calldata. So in reality, only one calldata is passed during the proxy creation process that contains the encoded payload. 
+
+Each parameter is explained before. But the call flow for a single user theft will be something like this:
+
+1) Getting the user address and creates a array of dimension one with that address.
+2) Encoding the approval payload that calls `triggerApproveForAll` which needs both the token address and the spender to be passed as inputs.
+3) Encoding the initializer payload and get a salt in order to create the proxy later on.
+4) Creating the proxy with callback and getting that instance.
+5) Because the proxy creation passed also the `delegatecall` to our `triggerApproveForAll` function, they have technically the instructions to allow the attacker contract to do whatever it wants with the tokens.
+6) Having the allowance, the contract can perform a `transferFrom` and take the tokens out of the proxy and transfer them to the attacker.
+
+7) Rinse and repeat this for each user!
+
+NOTE: The `proxyCreated` function within the `WalletRegistry` will be completely executed before needing to execute the step 6) and because of that, the tokens are available on the proxy contract.
+
+
+### Learnings - Mitigations
+- Beware on the `delegatecall` call flow and where it ends. The last contract of the delegation chain can perform any action and they may harm the desired implementation. Within [this video](https://www.youtube.com/watch?v=R1eZCmR91vQ&t=4781s) of Scott Bigelow it is explained how delegatecalls can be used to selfdestruct contracts maliciously.
+- Check always how and when the tokens within the contract are supposed to flow. Think them as a liquid. When, who, and how will the tokens move within the protocol? Who can control it? Who can't? Do we have flow assurance that depends only on states of the protocol? Are there some external actors or parameters that can compromise that flow assurance? If a whole process needs to be seen in a macro way, we can't treat tokens as single points of data. In a macro way treating they as flows it helps sometimes to identify vulnerabilities.
+- This delegation problem can be analyzed with the isomorphism of a leaking tank. You trust that the contractor will work ethically it but instead of that, he decides to open even more the leaking hole and derive all the water towards his tank. Just because you delegated him the job by trusting his methods. He will be with in power of the water later on and you won't have anything but thirst. The state change (volume, amount of water) impacts directly on you but how the whole process was implemented is responsibility of the contractor. Coming from business and administration theory: *You can delegate a task but the underlying responsibility of its outcomes is always yours!*
+ 
