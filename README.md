@@ -657,6 +657,13 @@ It is passed as a parameter of the proxy creation. Then, when the proxy is deplo
 
 Well. This seems like a dead end. But... if we follow the callback logic we see that there's a `require` statement that gives us an idea of an important step, precisely on `line 77`. In other words, it is trying to say that the given instructions passed as `initializer` , need to perform **first** the initialization of the `GnosisSafe` (that's why it is called after initializer and not Carlos). 
 
+<p align="center">
+  <br/>
+  <img src="./images/backdoor-proxies.png">
+  <br/>
+</p>
+
+
 This is also a recommendation of OpenZeppelin regarding constructors and proxies. They recommend to use initializer functions rather than constructors. This is mainly because how proxy calls work and where is indeed stored the data. Its a matter of how the data is stored and retrieved from data slots within an execution. The most important concept we need to have clear is how data changes and *where* it changes when a proxy contract comes into action. Short story, the proxy contracts works with delegations. A delegation is basically running the logic of an implementation contract which modifies the state within the caller. In other words, the proxy contract executes the logic of the implementation contract but all the changes and impacts that the logic implies, are applied to the proxy. If you are more interested about how proxies work and how they provide upgradeability, we encourage you to read [this medium post](https://medium.com/coinmonks/upgradeable-proxy-contract-from-scratch-3e5f7ad0b741#:~:text=Proxy%20contract%20is%20a%20contract,that%20is%20called%20implementation%20contract.).
 
 So, the first instruction of the payload must be the call to the `setup` function within `GnosisSafe`. Lets take a look to that function. 
