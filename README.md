@@ -786,7 +786,7 @@ This level has two contracts, the scheduler and executioner of the instructions 
 
 ## Credits & Special Thanks
 
-- Thanks a lot to @tobaias for checking the whole file for mistakes and making important corrections that leveled up this educational walkthrough!
+- Thanks a lot to `@tobaias` for checking the whole file for mistakes and making important corrections that leveled up this educational walkthrough!
 
 - Thanks a lot for reading and being with me all along this journey! Hope you learned much more than me while making these challenges. If you can anything to say, mention or even correct, every comment is welcome! 
 
