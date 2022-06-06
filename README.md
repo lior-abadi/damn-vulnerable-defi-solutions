@@ -398,7 +398,7 @@ This level leaves a bonus track that can be done as an easter egg! It does not c
         await drainSources();
 
 ### Learnings - Mitigations
-- The main vulnerability in here is the Web2-side of the project. While using sensible data, it is advised to use one way encoded formats of that data in order to prevent this scenarios.
+- The main vulnerability in here is the Web2-side of the project. While using sensitive data, it is advised to use one way encoded formats of that data in order to prevent this scenarios.
 - Knowing how and what information is available to be queried from our server also helps.
 
 **The contracts are not always the weak point!**
