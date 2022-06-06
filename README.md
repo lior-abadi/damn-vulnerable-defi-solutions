@@ -738,5 +738,50 @@ NOTE: The `proxyCreated` function within the `WalletRegistry` will be completely
 ### Learnings - Mitigations
 - Beware on the `delegatecall` call flow and where it ends. The last contract of the delegation chain can perform any action and they may harm the desired implementation. Within [this video](https://www.youtube.com/watch?v=R1eZCmR91vQ&t=4781s) of Scott Bigelow it is explained how delegatecalls can be used to selfdestruct contracts maliciously.
 - Check always how and when the tokens within the contract are supposed to flow. Think them as a liquid. When, who, and how will the tokens move within the protocol? Who can control it? Who can't? Do we have flow assurance that depends only on states of the protocol? Are there some external actors or parameters that can compromise that flow assurance? If a whole process needs to be seen in a macro way, we can't treat tokens as single points of data. In a macro way treating they as flows it helps sometimes to identify vulnerabilities.
-- This delegation problem can be analyzed with the isomorphism of a leaking tank. You trust that the contractor will work ethically it but instead of that, he decides to open even more the leaking hole and derive all the water towards his tank. Just because you delegated him the job by trusting his methods. He will be with in power of the water later on and you won't have anything but thirst. The state change (volume, amount of water) impacts directly on you but how the whole process was implemented is responsibility of the contractor. Coming from business and administration theory: *You can delegate a task but the underlying responsibility of its outcomes is always yours!*
- 
+- This delegation problem can be analyzed with the isomorphism of a leaking tank. You trust that the contractor will work ethically it but instead of that, he decides to open even more the leaking hole and derive all the water towards his tank. Just because you delegated him the job by trusting his methods. He will be with in power of the water later on and you won't have anything but thirst. The state change (volume, amount of water) impacts directly on you but how the whole process was implemented is responsibility of the contractor. 
+
+Coming from business and administration theory: 
+
+**You can delegate a task but the underlying responsibility of its outcomes is always yours!**
+
+
+## 12) Climber
+
+### Catch - Hints
+If you've got this far, kudos to you! This is the last one (so far). Think hard about the `checks, effects, interactions` motto. As difficult as this level may seem if you spot something odd (also typical in reentrant contracts), you will crack this level.
+
+### Solution
+The core of this level vulnerability resides within the `line 108` under the `ClimberTimelock.sol` contract. This is because they are giving anyone the chance to execute any instruction towards any target contract before checking if that action was properly scheduled before.
+But (there is always a but sadly) it is needed to schedule the calls (before or after executing them), otherwise the whole execution will be reverted like a cascade when the `line 108` runs. Also, both `execute` and `schedule` can have multiple steps (executed or scheduled) in a single call.
+
+So far we know that we can freely execute actions thanks to this enormous bug making sure that within some call of the array we need to schedule the other calls in order to have the transaction mined.
+
+What if we can steal the ownership, get the proposer role, change the delay time and schedule all in one single execute call? That's what we are going to do. The instructions that we need to pass to `execute` are the following:
+
+1) Change the delay of the contract and set it to zero. This allows the whole process to work without waiting for cooldowns.
+2) Grant the `proposer` role to the attacker contract (otherwise, the `onlyProposer` modifier won't let it schedule the actions).
+3) Steal the ownership of the implementation contract. This will give us the power to upgrade the implementation. Even if having the ownership was pointless, just the fact of stealing an ownership is considered an attack itself. Free ownership, why not?
+4) Schedule the steps 1, 2, 3 so the whole execution is properly mined.
+
+As you may see, those steps don't perform any transfer or withdrawal of the tokens held by the vault so clearly there is something missing...
+
+Yes, indeed. Everything we did while executing the four steps from before was done entirely to perform the step 3). Stealing the ownership in order to upgrade the proxy implementation. As we have seen on the Backdoor level, proxies call the implementation logic under the implementation contract and the state changes are reflected on the proxy. This is what we need to do with the newer implementation. 
+
+By simply changing the access control of the `sweepFunds` function, we will be able to steal everything from the vault. By changing the `onlySweeper` modifier for `onlyOwner` we will be able to steal everything. Please note that the data structure of the proxy and implementation require having continuity on several data slots allocated to prior declared variables. That's why we are defining `_lastWithdrawalTimestamp` and `_sweeper`even if we don't use them later on (you can try deploying the contract without them and you will see the `Error: New storage layout is incompatible` along other errors pointing to each undeclared variable).
+
+A note on this. This level is using the OpenZeppelin safe proxy suite in order to perform upgrades "safely". The security of the upgrades in here relies on how the contracts are upgraded and what things are allowed within them. The vulnerability of this level does not comes from the proxies itself. It exists because of not respecting the `checks, effects, interactions` security approach on Solidity and thus having an access control leak.
+If no secure proxies are implemented in here, the hijack could also have been performed in a fancier and funnier way. We could have created within the new implementation contract a function that calls inside `selfdestruct` with our attacker contract as the receiver of the forwarded funds. Because the logic is only read from the implementation and the state impacts on the proxy if the proxy calls `selfdestruct` from an implementation contract, it will be selfdestructed and that operation forwards all the tokens held inside the destructed contract towards a receiver (even if the receiver lacks from a payable fallback function). OpenZeppelin upgradeable contracts check if there is an implementation of selfdestruct and reverts the whole upgrade.
+
+This level has two contracts, the scheduler and executioner of the instructions to the TimeLock (`ClimberCracker.sol`) and the new implementation of the proxy (`CrackerNewImpl.sol`). Both contracts are held within the level folder.
+
+### Learnings - Mitigations
+- Also trying to respect the "checks, effects, interactions" while creating and designing functions is a must. Sometimes you will see that some "require" statemets later on a function and most of the cases is because they are using variables that are retrieved within the function call. As a rule of thumb, whenever it's possible try to put the logical checks before everything else.
+- Checking how the access control may be leaked is also helpful. Trying to follow an execution until it ends the chain of calls and see if there is a vulnerable step is a good strategy. Also, this is helpful to track reentrancies (some of these attacks can be mitigated by using modifiers on a relevant part of the call chain).
+- Using safe proxy-implementation contracts like the ones provided OpenZeppelin prevents having further vulnerabilites regarding upgradeable suites. If you are interested on more problems regarding proxies, you can read [this article written by Tincho Abbate](https://forum.openzeppelin.com/t/beware-of-the-proxy-learn-how-to-exploit-function-clashing/1070) (the creator of Damn Vulnerable Defi) where he talks about functions clashing attacks within proxies.
+
+**Whenever it is possible, the checks go upfront. In Solidity and while doing business also...**
+
+
+Thanks a lot for reading and being with me all along this journey! Hope you learned much more than me while making these challenges. If you can anything to say, mention or even correct, every comment is welcome! 
+
+Lior.

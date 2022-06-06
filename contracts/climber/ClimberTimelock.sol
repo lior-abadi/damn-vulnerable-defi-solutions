@@ -88,7 +88,7 @@ contract ClimberTimelock is AccessControl {
         operations[id].known = true;
     }
 
-    /** Anyone can execute what has been scheduled via `schedule` */
+    /* Anyone can execute what has been scheduled via `schedule` */
     function execute(
         address[] calldata targets,
         uint256[] calldata values,

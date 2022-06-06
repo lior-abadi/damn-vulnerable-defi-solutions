@@ -77,4 +77,6 @@ contract ClimberVault is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
     // By marking this internal function with `onlyOwner`, we only allow the owner account to authorize an upgrade
     function _authorizeUpgrade(address newImplementation) internal onlyOwner override {}
+
+    
 }
