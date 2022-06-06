@@ -416,12 +416,11 @@ The main vulnerability in here is relying on a single oracle as a source to calc
 This level relies on the ```_computeOraclePrice()``` function in order to perform the estimation of the collateral needed to request a certain amount of tokens. If you are coming from languages such as Python or Javascript you won't see anything odd in here. But in Solidity, things work quite different in terms of numbers. 
 
 The mentioned function performs a division of two terms (both having 18 *decimals*). To illustrate this, we may follow this example:
-⠀
-⠀
 
-| Python | 0.15  | 0.99 | 1 | 250 |
-| :---:   | :-: | :-: | :-: | :-: |
-| Solidity | 15 | 99 | 100 | 25,000 |
+|  Python  | 0.15 | 0.99 |  1  |   250  |
+|:--------:|:----:|:----:|:---:|:------:|
+| Solidity |  15  |  99  | 100 | 25,000 |
+
 
 
 In the recent example we see that in order to express decimals on Solidity, we must express them as integers with a certain *sensibility*. And afterwards when we want to perform an operation with the real number, we need to know the amount of decimal positions that the number has in order to add or remove them.
