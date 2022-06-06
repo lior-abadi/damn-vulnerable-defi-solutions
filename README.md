@@ -778,7 +778,7 @@ This level has two contracts, the scheduler and executioner of the instructions 
 
 ### Learnings - Mitigations
 - Trying to respect the "checks, effects, interactions" while creating and designing functions is a must. Sometimes you will see that some `require` statemets later on a function and most of the cases is because they are using variables that are retrieved within the function call. As a rule of thumb, whenever it's possible try to put the logical checks before everything else.
-- Checking how the access control may be leaked is also helpful. Trying to follow an execution until it ends the chain of calls and see if there is a vulnerable step is a good strategy. Also, this is helpful to track reentrancies (some of these attacks can be mitigated by using modifiers on a relevant part of the call chain).
+- Checking how the access control may be leaked is also helpful. Trying to follow an execution until it ends the chain of calls and see if there is a vulnerable step, is a good strategy. Also, this is helpful to track reentrancies (some of these attacks can be mitigated by using modifiers on a relevant part of the call chain).
 - Using safe proxy-implementation contracts like the ones provided OpenZeppelin prevents having further vulnerabilites regarding upgradeable suites. If you are interested on more problems regarding proxies, you can read [this article written by Tincho Abbate](https://forum.openzeppelin.com/t/beware-of-the-proxy-learn-how-to-exploit-function-clashing/1070) (the creator of Damn Vulnerable Defi) where he talks about functions clashing attacks within proxies.
 
 **Whenever it is possible, the checks go upfront. In Solidity and while doing business also...**
