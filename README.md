@@ -2,7 +2,7 @@
 Created by [@tinchoabbate](https://twitter.com/tinchoabbate)
 Visit [damnvulnerabledefi.xyz](https://damnvulnerabledefi.xyz)
 
-# Solutions
+# Solutions - Walkthrough
 
 When contracts are used to solve challenges, they can be found under each `contracts` folder named with the word **Cracker** (e.g. *"SelfieCracker"*).
 
